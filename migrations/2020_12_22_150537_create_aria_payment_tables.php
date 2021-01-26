@@ -64,6 +64,8 @@ class CreateAriaPaymentTables extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('aria_payment_tables');
+        Schema::dropIfExists('invoices');
+        Schema::dropIfExists('invoice_items');
+        Schema::dropIfExists('transactions');
     }
 }

@@ -7,17 +7,12 @@
     form.setAttribute("target", "_self");
 
     var params = {
-        Amount: '{{$amount}}',
-        MID: '{{$merchant}}',
-        ResNum: '{{$resNum}}',
-        RedirectURL: '{{$callBackUrl}}',
-        ResNum1: '{{ isset( $resNum1 ) ? $resNum1 : "" }}',
-        ResNum2: '{{ isset( $resNum2 ) ? $resNum2 : "" }}',
-        ResNum3: '{{ isset( $resNum3 ) ? $resNum3 : "" }}',
-        ResNum4: '{{ isset( $resNum4 ) ? $resNum4 : "" }}',
+        @foreach ($data as $key => $value)
+            {{$key}} : "{{$value}}" ,
+        @endforeach
     };
 
-    for(var key in params){
+    for (var key in params) {
 
         var hiddenField = document.createElement("input");
         hiddenField.setAttribute("name", key);

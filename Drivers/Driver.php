@@ -5,57 +5,76 @@ namespace Sohbatiha\AriaPayment\Drivers;
 
 
 use Illuminate\Support\Facades\Redirect;
+use phpDocumentor\Reflection\Types\This;
 use Sohbatiha\AriaPayment\Invoice;
 
 abstract class Driver
 {
-    protected static $callbackUrl;
+    protected $callbackUrl;
 
-    protected static $submitMethod = "GET";
+    protected $invoice;
 
-    protected static $submitData = [];
+    protected $submitMethod = "GET";
+
+    protected $submitData = [];
 
     public function callbackUrl($url)
     {
-        static::$callbackUrl = $url;
+        $this->callbackUrl = $url;
+        return $this;
     }
 
-    abstract public function purchase(Invoice $invoice, callable $callback , string $redirect_url);
+    public function pay(Invoice $invoice)
+    {
+        $this->invoice = $invoice;
+        return $this;
+    }
 
-    abstract public function verify(string $res_id, callable $callback);
+    public function callback(string $string)
+    {
+        $this->callbackUrl = $string;
+        return $this;
+    }
 
     abstract public function execute();
+
+    abstract public function verify(string $res_id, callable $callback);
 
     abstract public function mapBankStatusToDescription(): array;
 
     abstract public function mapBankStatusToAriaPaymentStatus(): array;
 
-    public function toJson()
+    abstract public function getDriverName(): string;
+
+    public function getResponse()
     {
         $data = [
-            "callbackUrl" => static::$callbackUrl,
-            "submitMethod" => static::$submitMethod,
-            "data" => static::$submitData,
+            "callbackUrl" => $this->callbackUrl,
+            "submitMethod" => $this->submitMethod,
+            "data" => $this->submitData,
         ];
         return response()->json($data);
     }
 
-    public function redirect()
+    public function redirectView()
     {
-        if (static::$submitMethod == "GET") {
+        if ($this->submitMethod == "GET") {
             $query_string = "/?";
-            foreach (static::$submitData as $key => $value) {
+            foreach ($this->submitData as $key => $value) {
                 $query_string .= $key . '=' . $value . '&';
             }
             $query_string = rtrim($query_string, '&');
 
-            $url = rtrim(static::$callbackUrl, '/') . $query_string;
+            $url = rtrim($this->callbackUrl, '/') . $query_string;
 
             return Redirect::to($url);
         }
 
-        return view('redirect')->with(["data" => static::$submitData]);
-
+        return view('ariaPayment::redirect')->with(["data" => $this->submitData]);
     }
 
+    public function getResNumber()
+    {
+        return $this->resNum = time() . rand(1000, 2000);
+    }
 }

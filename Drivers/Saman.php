@@ -9,30 +9,36 @@ use Sohbatiha\AriaPayment\Invoice;
 class Saman extends Driver
 {
     private $amount;
+    protected $token ;
 
-    public function purchase(Invoice $invoice, callable $callback, string $redirect_url = null)
+    public function execute()
     {
-        $amount = $invoice->getAmount() * 10;
-        $res_num = 123;
-        $MID = 234;
-        $request_token_url = "";
+        $amount = $this->invoice->getAmount();
+        $res_num = $this->getResNumber();
+        $MID = 11167238;
+        $request_token_url = "https://verify.sep.ir/Payments/InitPayment.asmx?WSDL";
 
 
         $soap = new \SoapClient($request_token_url);
 
-        $response = $soap->RequestToken($MID, $res_num, $amount , $redirect_url);
+        $response = $soap->RequestToken($MID, $res_num, $amount );
 
         $status = (int)$response;
 
-        if ($status < 0) { // if something has done in a wrong way
+        if ($status < 0) {
             $this->purchaseFailed($response);
         }
 
-        // set transaction id
-        $this->invoice->transactionId($response);
+        $this->token = $response ;
 
-        // return the transaction's id
-        return $this->invoice->getTransactionId();
+        $this->submitData = [
+            "Token" => $response ,
+            "RedirectURL" => $this->callbackUrl
+        ];
+
+        $this->submitMethod = "POST";
+
+        return $this;
 
     }
 
@@ -43,14 +49,9 @@ class Saman extends Driver
 
     public function toJson()
     {
-        dd(234234);
         // TODO: Implement toJson() method.
     }
 
-    public function execute()
-    {
-        // TODO: Implement execute() method.
-    }
 
     public function mapBankStatusToDescription(): array
     {
