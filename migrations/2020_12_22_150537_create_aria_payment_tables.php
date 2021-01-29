@@ -45,7 +45,7 @@ class CreateAriaPaymentTables extends Migration
             $table->string('ref_id')->nullable();
             $table->string('res_id');
             $table->string('amount');
-            $table->unsignedTinyInteger('status');
+            $table->tinyInteger('status');
             $table->json('data')->nullable();
             $table->timestamps();
 

@@ -39,14 +39,14 @@ class Invoice
 
         $this->amount = $total_amount;
 
-        $invoice = InvoiceModel::create([
+        $this->invoice = InvoiceModel::create([
             "amount" => $total_amount,
             "user_id" => auth()->user()->id ?? null,
         ]);
 
-        $invoice->items()->saveMany($invoice_items);
+        $this->invoice->items()->saveMany($invoice_items);
 
-        $this->items = $invoice->items;
+        $this->items = $this->invoice->items;
 
         return $this;
     }

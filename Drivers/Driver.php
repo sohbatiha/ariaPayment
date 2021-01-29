@@ -11,12 +11,15 @@ use Sohbatiha\AriaPayment\Invoice;
 abstract class Driver
 {
     protected $callbackUrl;
-
     protected $invoice;
-
     protected $submitMethod = "GET";
-
     protected $submitData = [];
+    protected $transaction;
+
+    const FAILED = -1;
+    const WAITING = 0;
+    const SUCCESSFUL = 1;
+
 
     public function callbackUrl($url)
     {
@@ -38,11 +41,7 @@ abstract class Driver
 
     abstract public function execute();
 
-    abstract public function verify(string $res_id, callable $callback);
-
-    abstract public function mapBankStatusToDescription(): array;
-
-    abstract public function mapBankStatusToAriaPaymentStatus(): array;
+    abstract public function verify();
 
     abstract public function getDriverName(): string;
 
@@ -58,6 +57,7 @@ abstract class Driver
 
     public function redirectView()
     {
+
         if ($this->submitMethod == "GET") {
             $query_string = "/?";
             foreach ($this->submitData as $key => $value) {
@@ -77,4 +77,20 @@ abstract class Driver
     {
         return $this->resNum = time() . rand(1000, 2000);
     }
+
+    public function generateCallbackUrl($transaction_id)
+    {
+        return rtrim($this->callbackUrl ?? env("APP_URL"), "/") . '/?_token=' . csrf_token() . '&transaction_id=' . $transaction_id;
+    }
+
+    public function setTransaction($transaction)
+    {
+        $this->transaction = $transaction;
+    }
+
+    public function setInvoice($invoice)
+    {
+        $this->invoice = $invoice;
+    }
+
 }
