@@ -15,6 +15,11 @@ class Saman extends Driver
     private $amount;
     protected $token;
 
+    public function getDriverName(): string
+    {
+        return 'saman';
+    }
+
     public function execute()
     {
         $amount = $this->invoice->getAmount();
@@ -23,16 +28,20 @@ class Saman extends Driver
         $request_token_url = "https://verify.sep.ir/Payments/InitPayment.asmx?WSDL";
 
 
-        $soap = new SoapClient($request_token_url);
+        try {
+            $soap = new SoapClient($request_token_url);
 
-        $response = $soap->RequestToken($MID, $res_num, $amount);
+            $response = $soap->RequestToken($MID, $res_num, $amount);
 
-        $status = (int)$response;
+            $status = (int)$response;
 
-        if ($status < 0) {
-            $this->purchaseFailed($response);
+            if ($status < 0) {
+                throw new \Exception('توکنی از سمت بانک دریافت نشد .');
+            }
+        } catch (\Exception $exception) {
+            Log::error($exception->getMessage());
+            throw new \Exception('در ارتباط با بانک خطایی رخ داد');
         }
-
 
         $this->saveTransaction([
             'invoice_id' => $this->invoice->invoice->id,
@@ -79,7 +88,7 @@ class Saman extends Driver
 
         if (Transaction::where('ref_id', $refNum)->count() > 0) {
 
-            throw new \Exception("این رسید دیجیتالی قبلا استفاده شده است .", null);
+            //throw new \Exception("این رسید دیجیتالی قبلا استفاده شده است .", null);
         }
 
         try {
@@ -102,18 +111,33 @@ class Saman extends Driver
 
             throw new \Exception($bankStateMessage, $bankStateCode);
         } else if ($res != $transaction->amount) {
+
+            $username = $MID;
+            $password = config('aria_payment.saman.password');
+
+            //reverse transaction
+            try {
+                $res = $soapclient->reverseTransaction($refNum, $MID, $username, $password);
+            } catch (\Exception $e) {
+            }
+
             $bankStateCode = null;
-            $bankStateMessage = 'مبلغ پرداخت شده با مبلغ فاکتور متفاوت می باشد .';
+            $bankStateMessage = 'مبلغ پرداخت شده با مبلغ فاکتور متفاوت می باشد . وجه پرداختی به حساب شما برگشت داده شد .';
+
+            if ($res != 1) {
+                $bankStateMessage = 'مبلغ پرداخت شده با مبلغ فاکتور متفاوت می باشد . برگشت وجه با خطا مواجه شد . لطفا برای برگشت وجه با پشتیبانی تماس حاصل نمایید.';
+            }
+
 
             $this->updateTransactionStatus($refNum, self::FAILED, $bankStateCode, $bankStateMessage);
-
             throw new \Exception($bankStateMessage, $bankStateCode);
+
+
         }
 
         $transaction->data = array_merge($transaction->data, ["card_number" => $securePan]);
 
         $this->updateTransactionStatus($refNum, self::SUCCESSFUL, null, 'تراکنش با موفقیت انجام شده است .');
-
 
     }
 
@@ -133,16 +157,10 @@ class Saman extends Driver
         $transaction->save();
     }
 
-    public function toJson()
-    {
-        // TODO: Implement toJson() method.
-    }
-
     public function saveTransaction($transaction)
     {
         $this->transaction = Transaction::create($transaction);
     }
-
 
     public function mapVerifyTransactionStateCodeToMessage($code): string
     {
@@ -213,12 +231,6 @@ class Saman extends Driver
             96 => 'کلیه خطاهای دیگر بانکی باعث ایجاد چنین خطایی گردید .',
 
         ][$code];
-    }
-
-
-    public function getDriverName(): string
-    {
-        return 'saman';
     }
 
 }

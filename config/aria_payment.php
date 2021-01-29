@@ -1,8 +1,8 @@
 <?php
 return [
-    "default_driver" => "" ,
-    "saman"=>[
-        "MID" => 11167238 ,
-
+    "default_driver" => "",
+    "saman" => [
+        "MID" => 11111111,
+        "password" => "password" ,
     ]
 ];
