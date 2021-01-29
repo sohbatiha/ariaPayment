@@ -5,6 +5,7 @@ namespace Sohbatiha\AriaPayment\Drivers;
 
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Sohbatiha\AriaPayment\Invoice;
 use Sohbatiha\AriaPayment\Models\Transaction;
 use SoapClient;
@@ -40,7 +41,7 @@ class Saman extends Driver
             'amount' => $amount,
             'status' => self::WAITING,
             'data' => [
-                'ip' => request()->ip(),
+                'ip_on_request' => request()->ip(),
                 'user_id' => auth()->user()->id ?? null,
                 'driver' => $this->getDriverName()
             ],
@@ -72,11 +73,13 @@ class Saman extends Driver
         $MID = config('aria_payment.saman.MID');
 
         if ($state != 'OK') {
+            $this->updateTransactionStatus($refNum, self::FAILED, $stateCode, $this->mapStateCodeToMessage($stateCode));
             throw new \Exception($this->mapStateCodeToMessage($stateCode), $stateCode);
         }
 
         if (Transaction::where('ref_id', $refNum)->count() > 0) {
-            throw new \Exception("این رسید دیجیتالی قبلا استفاده شده است ." , null);
+
+            throw new \Exception("این رسید دیجیتالی قبلا استفاده شده است .", null);
         }
 
         try {
@@ -84,36 +87,50 @@ class Saman extends Driver
             $res = $soapclient->verifyTransaction($refNum, $MID);
 
         } catch (\Exception $exception) {
-            throw new \Exception('failed connect to bank for verify request' , null);
+            $msg = "در ارتباط با بانک برای وریفای تراکنش خطایی رخ داد .";
+            Log::error($exception->getMessage());
+            $this->updateTransactionStatus($refNum, self::FAILED, null, $msg);
+            throw new \Exception($msg, null);
         }
 
         $transaction = $this->transaction;
 
         if ($res <= 0) {
-            $bankStateCode = $res ;
+            $bankStateCode = $res;
             $bankStateMessage = $this->mapVerifyTransactionStateCodeToMessage($stateCode);
-
-            $transaction->status = self::FAILED;
-            $transaction->ref_id = $refNum;
-            $transaction->save();
+            $this->updateTransactionStatus($refNum, self::FAILED, $bankStateCode, $bankStateMessage);
 
             throw new \Exception($bankStateMessage, $bankStateCode);
         } else if ($res != $transaction->amount) {
-            $bankStateCode = null ;
+            $bankStateCode = null;
             $bankStateMessage = 'مبلغ پرداخت شده با مبلغ فاکتور متفاوت می باشد .';
 
-            $transaction->status = self::FAILED;
-            $transaction->ref_id = $refNum;
-            $transaction->save();
+            $this->updateTransactionStatus($refNum, self::FAILED, $bankStateCode, $bankStateMessage);
 
             throw new \Exception($bankStateMessage, $bankStateCode);
         }
 
-        $transaction->status = self::SUCCESSFUL;
+        $transaction->data = array_merge($transaction->data, ["card_number" => $securePan]);
+
+        $this->updateTransactionStatus($refNum, self::SUCCESSFUL, null, 'تراکنش با موفقیت انجام شده است .');
+
+
+    }
+
+    public function updateTransactionStatus($refNum, $status, $stateCode, $stateMessage)
+    {
+        $transaction = $this->transaction;
+
         $transaction->ref_id = $refNum;
+        $transaction->status = $status;
+
+        $transaction->data = array_merge($transaction->data, [
+            "state_code" => $stateCode,
+            "status_message" => $stateMessage,
+            "ip_on_verify" => request()->ip()
+        ]);
+
         $transaction->save();
-
-
     }
 
     public function toJson()
@@ -185,7 +202,7 @@ class Saman extends Driver
             58 => 'انجام تراکنش مربوطه توسط پایانه انجام دهنده مجاز ن ی باشد .',
             61 => 'مبلغ تراکنش بیش از حد مجاز است .',
             62 => 'کارت محدود شده است .',
-            63 => 'ت هیدات امنیتی نقض گردیده است .',
+            63 => 'تمهیدات امنیتی نقض گردیده است .',
             65 => 'تعداد درخواست تراکنش بیش از حد مجاز است .',
             68 => 'تراکنش در شبکه بانکی _ Timeout خورده است .',
             75 => 'تعداد دفعات ورود رمز غلط بیش از حد مجاز است .',
