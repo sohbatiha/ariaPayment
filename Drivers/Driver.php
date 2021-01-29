@@ -93,4 +93,13 @@ abstract class Driver
         $this->invoice = $invoice;
     }
 
+    public function getInvoice()
+    {
+        return $this->invoice ;
+    }
+
+    public function getInvoiceItems(){
+        return $this->invoice->items ;
+    }
+
 }

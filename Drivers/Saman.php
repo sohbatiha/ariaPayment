@@ -87,8 +87,7 @@ class Saman extends Driver
         }
 
         if (Transaction::where('ref_id', $refNum)->count() > 0) {
-
-            //throw new \Exception("این رسید دیجیتالی قبلا استفاده شده است .", null);
+            throw new \Exception("این رسید دیجیتالی قبلا استفاده شده است .", null);
         }
 
         try {

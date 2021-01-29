@@ -17,16 +17,16 @@ class Payment extends Facade
 
     public static function verify()
     {
-        $transaction = Transaction::where("id" , request()->transaction_id)->with('invoice')->first();
+        $transaction = Transaction::where("id", request()->transaction_id)->with(['invoice', 'invoice.items'])->first();
 
-        if($transaction->status == Driver::SUCCESSFUL){
-            throw new \Exception("این تراکنش قبلا وریفای و تایید شده است ." , null);
+        if ($transaction->status == Driver::SUCCESSFUL) {
+            throw new \Exception("این تراکنش قبلا وریفای و تایید شده است .", null);
         }
 
         $driver = $transaction->data['driver'] ?? null;
 
         if (!$driver) {
-            throw new \Exception("درایور مرتبط با این تراکنش پیدا نشد ." , null);
+            throw new \Exception("درایور مرتبط با این تراکنش پیدا نشد .", null);
         }
 
         $driver_class = resolve('aria_payment')->driver($driver);
